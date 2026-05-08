@@ -1,1 +1,0 @@
-# omaimamaa.github.io

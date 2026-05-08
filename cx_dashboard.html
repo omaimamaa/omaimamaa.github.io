@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>CX Performance Dashboard — SaaS B2B</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0d0f14;
+  --surface:#13161e;
+  --card:#181c27;
+  --card2:#1e2333;
+  --accent:#00e5a0;
+  --accent2:#4f8eff;
+  --accent3:#ff6b6b;
+  --accent4:#ffd166;
+  --text:#e2e8f4;
+  --muted:#5a6480;
+  --border:#252b3d;
+  --good:#00e5a0;
+  --warn:#ffd166;
+  --bad:#ff6b6b;
+}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;font-weight:400;min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 60% 40% at 80% 20%,rgba(0,229,160,0.04) 0%,transparent 60%),radial-gradient(ellipse 50% 50% at 20% 80%,rgba(79,142,255,0.04) 0%,transparent 60%);pointer-events:none;z-index:0}
+
+/* HEADER */
+.header{position:sticky;top:0;z-index:100;background:rgba(13,15,20,0.9);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:1rem 2rem;display:flex;justify-content:space-between;align-items:center}
+.header-left{display:flex;flex-direction:column;gap:2px}
+.header-title{font-size:1.1rem;font-weight:700;letter-spacing:0.05em;color:var(--text)}
+.header-sub{font-family:'JetBrains Mono',monospace;font-size:0.7rem;color:var(--muted);letter-spacing:0.1em}
+.header-right{display:flex;align-items:center;gap:1rem}
+.live-badge{display:flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:0.65rem;color:var(--accent);letter-spacing:0.1em}
+.live-dot{width:6px;height:6px;background:var(--accent);border-radius:50%;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.5;transform:scale(0.8)}}
+
+.period-btn{font-family:'JetBrains Mono',monospace;font-size:0.65rem;padding:0.4rem 0.8rem;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;letter-spacing:0.08em;transition:all 0.2s}
+.period-btn.active,.period-btn:hover{border-color:var(--accent);color:var(--accent);background:rgba(0,229,160,0.05)}
+
+/* MAIN */
+.main{padding:1.5rem 2rem;position:relative;z-index:1;max-width:1400px;margin:0 auto}
+
+/* KPI GRID */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.5rem}
+.kpi-card{background:var(--card);border:1px solid var(--border);padding:1.25rem 1.5rem;position:relative;overflow:hidden;transition:border-color 0.3s,transform 0.2s}
+.kpi-card:hover{border-color:rgba(0,229,160,0.2);transform:translateY(-2px)}
+.kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--kpi-color,var(--accent));opacity:0.6}
+.kpi-label{font-family:'JetBrains Mono',monospace;font-size:0.65rem;color:var(--muted);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:0.6rem}
+.kpi-value{font-size:2rem;font-weight:700;color:var(--text);line-height:1;margin-bottom:0.4rem}
+.kpi-value span{font-size:1rem;font-weight:400;color:var(--muted)}
+.kpi-change{font-family:'JetBrains Mono',monospace;font-size:0.7rem;display:flex;align-items:center;gap:4px}
+.kpi-change.up{color:var(--good)}
+.kpi-change.down{color:var(--bad)}
+.kpi-change.neutral{color:var(--warn)}
+.kpi-sparkline{position:absolute;bottom:0;right:0;opacity:0.15}
+
+/* CHARTS GRID */
+.charts-grid{display:grid;grid-template-columns:2fr 1fr;gap:1rem;margin-bottom:1rem}
+.charts-grid-2{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;margin-bottom:1rem}
+
+.chart-card{background:var(--card);border:1px solid var(--border);padding:1.5rem}
+.chart-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1.2rem}
+.chart-title{font-size:0.85rem;font-weight:600;color:var(--text);letter-spacing:0.03em}
+.chart-sub{font-family:'JetBrains Mono',monospace;font-size:0.65rem;color:var(--muted);margin-top:2px}
+.chart-badge{font-family:'JetBrains Mono',monospace;font-size:0.6rem;padding:3px 8px;border-radius:2px}
+.badge-good{background:rgba(0,229,160,0.1);color:var(--good);border:1px solid rgba(0,229,160,0.2)}
+.badge-warn{background:rgba(255,209,102,0.1);color:var(--warn);border:1px solid rgba(255,209,102,0.2)}
+.badge-bad{background:rgba(255,107,107,0.1);color:var(--bad);border:1px solid rgba(255,107,107,0.2)}
+
+/* NPS GAUGE */
+.nps-gauge-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0.5rem;height:200px}
+.nps-big{font-size:3.5rem;font-weight:700;color:var(--accent);line-height:1}
+.nps-label{font-family:'JetBrains Mono',monospace;font-size:0.65rem;color:var(--muted);letter-spacing:0.1em}
+.nps-bar{width:100%;height:8px;background:var(--border);border-radius:4px;overflow:hidden;margin-top:0.5rem}
+.nps-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--bad),var(--warn),var(--good));transition:width 0.8s ease}
+.nps-segments{display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--muted);margin-top:4px}
+
+/* CSAT DONUT */
+.donut-wrap{display:flex;align-items:center;gap:1.5rem;height:200px}
+.donut-canvas{flex-shrink:0}
+.donut-legend{display:flex;flex-direction:column;gap:0.6rem}
+.legend-item{display:flex;align-items:center;gap:8px;font-size:0.75rem}
+.legend-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.legend-label{color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:0.65rem}
+.legend-val{color:var(--text);font-weight:600;margin-left:auto}
+
+/* CHURN TABLE */
+.segment-table{width:100%;border-collapse:collapse}
+.segment-table th{font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--muted);letter-spacing:0.1em;text-align:left;padding:0.5rem 0;border-bottom:1px solid var(--border)}
+.segment-table td{font-size:0.78rem;padding:0.6rem 0;border-bottom:1px solid rgba(37,43,61,0.5);vertical-align:middle}
+.risk-bar-wrap{display:flex;align-items:center;gap:8px}
+.risk-bar{height:5px;border-radius:3px;transition:width 0.8s ease}
+.risk-val{font-family:'JetBrains Mono',monospace;font-size:0.65rem;color:var(--muted)}
+.status-pill{font-family:'JetBrains Mono',monospace;font-size:0.58rem;padding:2px 7px;border-radius:2px}
+
+/* TICKET TABLE */
+.ticket-list{display:flex;flex-direction:column;gap:0.5rem;max-height:220px;overflow-y:auto}
+.ticket-list::-webkit-scrollbar{width:3px}
+.ticket-list::-webkit-scrollbar-track{background:transparent}
+.ticket-list::-webkit-scrollbar-thumb{background:var(--border)}
+.ticket-item{display:grid;grid-template-columns:1fr auto auto;gap:1rem;align-items:center;padding:0.6rem 0.8rem;background:var(--card2);border-left:2px solid var(--item-color,var(--border));font-size:0.75rem}
+.ticket-name{color:var(--text);font-weight:500}
+.ticket-meta{font-family:'JetBrains Mono',monospace;font-size:0.62rem;color:var(--muted)}
+.ticket-score{font-family:'JetBrains Mono',monospace;font-size:0.72rem;font-weight:600}
+
+/* FOOTER */
+.dash-footer{display:flex;justify-content:space-between;align-items:center;padding:1rem 2rem;border-top:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:0.62rem;color:var(--muted)}
+
+/* FILTER BAR */
+.filter-bar{display:flex;gap:0.5rem;margin-bottom:1.5rem;flex-wrap:wrap;align-items:center}
+.filter-label{font-family:'JetBrains Mono',monospace;font-size:0.65rem;color:var(--muted);letter-spacing:0.1em;margin-right:0.5rem}
+.filter-btn{font-family:'JetBrains Mono',monospace;font-size:0.62rem;padding:0.3rem 0.7rem;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:all 0.2s;border-radius:2px}
+.filter-btn.active,.filter-btn:hover{border-color:var(--accent2);color:var(--accent2);background:rgba(79,142,255,0.05)}
+
+@media(max-width:900px){
+  .kpi-grid{grid-template-columns:repeat(2,1fr)}
+  .charts-grid{grid-template-columns:1fr}
+  .charts-grid-2{grid-template-columns:1fr}
+  .main{padding:1rem}
+  .header{padding:1rem}
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-left">
+    <div class="header-title">CX Performance Dashboard</div>
+    <div class="header-sub">SaaS B2B · Customer Experience Analytics · Simulated Data</div>
+  </div>
+  <div class="header-right">
+    <div class="live-badge"><div class="live-dot"></div>LIVE</div>
+    <button class="period-btn" onclick="setPeriod('Q1')">Q1</button>
+    <button class="period-btn" onclick="setPeriod('Q2')">Q2</button>
+    <button class="period-btn active" onclick="setPeriod('Q3')">Q3</button>
+    <button class="period-btn" onclick="setPeriod('Q4')">Q4</button>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- FILTER BAR -->
+  <div class="filter-bar">
+    <span class="filter-label">SEGMENT</span>
+    <button class="filter-btn active" onclick="setSegment(this,'all')">All</button>
+    <button class="filter-btn" onclick="setSegment(this,'enterprise')">Enterprise</button>
+    <button class="filter-btn" onclick="setSegment(this,'mid')">Mid-Market</button>
+    <button class="filter-btn" onclick="setSegment(this,'smb')">SMB</button>
+  </div>
+
+  <!-- KPI CARDS -->
+  <div class="kpi-grid">
+    <div class="kpi-card" style="--kpi-color:#00e5a0">
+      <div class="kpi-label">NPS Score</div>
+      <div class="kpi-value" id="kpi-nps">62<span>/100</span></div>
+      <div class="kpi-change up" id="kpi-nps-change">▲ +8 vs last quarter</div>
+    </div>
+    <div class="kpi-card" style="--kpi-color:#4f8eff">
+      <div class="kpi-label">CSAT Score</div>
+      <div class="kpi-value" id="kpi-csat">84<span>%</span></div>
+      <div class="kpi-change up" id="kpi-csat-change">▲ +5% vs last quarter</div>
+    </div>
+    <div class="kpi-card" style="--kpi-color:#ff6b6b">
+      <div class="kpi-label">Churn Rate</div>
+      <div class="kpi-value" id="kpi-churn">3.2<span>%</span></div>
+      <div class="kpi-change up" id="kpi-churn-change">▼ -1.1% vs last quarter</div>
+    </div>
+    <div class="kpi-card" style="--kpi-color:#ffd166">
+      <div class="kpi-label">Avg Resolution Time</div>
+      <div class="kpi-value" id="kpi-res">4.8<span>h</span></div>
+      <div class="kpi-change neutral" id="kpi-res-change">▼ -0.6h vs last quarter</div>
+    </div>
+  </div>
+
+  <!-- ROW 1 -->
+  <div class="charts-grid">
+
+    <!-- NPS TREND -->
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">NPS Trend — Monthly Evolution</div>
+          <div class="chart-sub">Promoters · Passives · Detractors</div>
+        </div>
+        <span class="chart-badge badge-good">+8 QoQ</span>
+      </div>
+      <canvas id="npsTrend" height="200"></canvas>
+    </div>
+
+    <!-- NPS GAUGE -->
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">NPS Distribution</div>
+          <div class="chart-sub">Current Quarter</div>
+        </div>
+      </div>
+      <div class="nps-gauge-wrap">
+        <div class="nps-big" id="gauge-val">62</div>
+        <div class="nps-label">NET PROMOTER SCORE</div>
+        <div style="width:100%">
+          <div class="nps-bar"><div class="nps-fill" id="nps-fill" style="width:62%"></div></div>
+          <div class="nps-segments"><span style="color:var(--bad)">Detractors 18%</span><span>Passives 20%</span><span style="color:var(--good)">Promoters 62%</span></div>
+        </div>
+        <div style="display:flex;gap:1.5rem;margin-top:0.5rem">
+          <div style="text-align:center"><div style="font-size:1.1rem;font-weight:700;color:var(--good)">62%</div><div style="font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--muted)">PROMOTERS</div></div>
+          <div style="text-align:center"><div style="font-size:1.1rem;font-weight:700;color:var(--warn)">20%</div><div style="font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--muted)">PASSIVES</div></div>
+          <div style="text-align:center"><div style="font-size:1.1rem;font-weight:700;color:var(--bad)">18%</div><div style="font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--muted)">DETRACTORS</div></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ROW 2 -->
+  <div class="charts-grid-2">
+
+    <!-- CSAT DONUT -->
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">CSAT Breakdown</div>
+          <div class="chart-sub">Satisfaction by rating</div>
+        </div>
+        <span class="chart-badge badge-good">84% avg</span>
+      </div>
+      <div class="donut-wrap">
+        <canvas id="csatDonut" width="140" height="140" class="donut-canvas"></canvas>
+        <div class="donut-legend">
+          <div class="legend-item"><div class="legend-dot" style="background:#00e5a0"></div><span class="legend-label">Very Satisfied</span><span class="legend-val">48%</span></div>
+          <div class="legend-item"><div class="legend-dot" style="background:#4f8eff"></div><span class="legend-label">Satisfied</span><span class="legend-val">36%</span></div>
+          <div class="legend-item"><div class="legend-dot" style="background:#ffd166"></div><span class="legend-label">Neutral</span><span class="legend-val">10%</span></div>
+          <div class="legend-item"><div class="legend-dot" style="background:#ff9a4f"></div><span class="legend-label">Unsatisfied</span><span class="legend-val">4%</span></div>
+          <div class="legend-item"><div class="legend-dot" style="background:#ff6b6b"></div><span class="legend-label">Very Unsatisfied</span><span class="legend-val">2%</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CHURN BY SEGMENT -->
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">Churn Risk by Segment</div>
+          <div class="chart-sub">Predictive model output</div>
+        </div>
+        <span class="chart-badge badge-warn">3 at risk</span>
+      </div>
+      <table class="segment-table">
+        <thead>
+          <tr>
+            <th>SEGMENT</th>
+            <th>RISK SCORE</th>
+            <th>STATUS</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Enterprise A</td>
+            <td><div class="risk-bar-wrap"><div class="risk-bar" style="width:80px;background:var(--bad);width:80%"></div><span class="risk-val">78%</span></div></td>
+            <td><span class="status-pill" style="background:rgba(255,107,107,0.1);color:var(--bad);border:1px solid rgba(255,107,107,0.2)">HIGH</span></td>
+          </tr>
+          <tr>
+            <td>SMB Cluster B</td>
+            <td><div class="risk-bar-wrap"><div class="risk-bar" style="width:60%;background:var(--warn)"></div><span class="risk-val">58%</span></div></td>
+            <td><span class="status-pill" style="background:rgba(255,209,102,0.1);color:var(--warn);border:1px solid rgba(255,209,102,0.2)">MEDIUM</span></td>
+          </tr>
+          <tr>
+            <td>Mid-Market C</td>
+            <td><div class="risk-bar-wrap"><div class="risk-bar" style="width:45%;background:var(--warn)"></div><span class="risk-val">42%</span></div></td>
+            <td><span class="status-pill" style="background:rgba(255,209,102,0.1);color:var(--warn);border:1px solid rgba(255,209,102,0.2)">MEDIUM</span></td>
+          </tr>
+          <tr>
+            <td>Enterprise B</td>
+            <td><div class="risk-bar-wrap"><div class="risk-bar" style="width:20%;background:var(--good)"></div><span class="risk-val">18%</span></div></td>
+            <td><span class="status-pill" style="background:rgba(0,229,160,0.1);color:var(--good);border:1px solid rgba(0,229,160,0.2)">LOW</span></td>
+          </tr>
+          <tr>
+            <td>SMB Cluster A</td>
+            <td><div class="risk-bar-wrap"><div class="risk-bar" style="width:12%;background:var(--good)"></div><span class="risk-val">11%</span></div></td>
+            <td><span class="status-pill" style="background:rgba(0,229,160,0.1);color:var(--good);border:1px solid rgba(0,229,160,0.2)">LOW</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- TICKET RESOLUTION -->
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">Top Ticket Categories</div>
+          <div class="chart-sub">Volume & avg resolution time</div>
+        </div>
+        <span class="chart-badge badge-good">4.8h avg</span>
+      </div>
+      <canvas id="ticketBar" height="200"></canvas>
+    </div>
+
+  </div>
+
+  <!-- ROW 3 — FULL WIDTH -->
+  <div style="display:grid;grid-template-columns:1.5fr 1fr;gap:1rem;margin-bottom:1rem">
+
+    <!-- CX SCORE OVER TIME -->
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">CX Score Evolution — 12 Months</div>
+          <div class="chart-sub">NPS · CSAT · Resolution composite</div>
+        </div>
+        <span class="chart-badge badge-good">+15% YoY</span>
+      </div>
+      <canvas id="cxEvolution" height="180"></canvas>
+    </div>
+
+    <!-- TOP INSIGHTS -->
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">Key Insights</div>
+          <div class="chart-sub">Data-driven recommendations</div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:0.75rem;margin-top:0.5rem">
+        <div style="background:rgba(0,229,160,0.05);border-left:2px solid var(--good);padding:0.75rem;border-radius:0 4px 4px 0">
+          <div style="font-size:0.75rem;font-weight:600;color:var(--good);margin-bottom:3px">↑ NPS up +8 pts</div>
+          <div style="font-size:0.72rem;color:var(--muted);line-height:1.5">Onboarding flow redesign correlates with promoter increase in Enterprise segment.</div>
+        </div>
+        <div style="background:rgba(255,107,107,0.05);border-left:2px solid var(--bad);padding:0.75rem;border-radius:0 4px 4px 0">
+          <div style="font-size:0.75rem;font-weight:600;color:var(--bad);margin-bottom:3px">⚠ Enterprise A at churn risk</div>
+          <div style="font-size:0.72rem;color:var(--muted);line-height:1.5">3 unresolved tickets >7 days. Recommend proactive CSM outreach within 48h.</div>
+        </div>
+        <div style="background:rgba(255,209,102,0.05);border-left:2px solid var(--warn);padding:0.75rem;border-radius:0 4px 4px 0">
+          <div style="font-size:0.75rem;font-weight:600;color:var(--warn);margin-bottom:3px">→ Billing tickets +22%</div>
+          <div style="font-size:0.72rem;color:var(--muted);line-height:1.5">Spike in billing-related tickets suggests UX friction in payment portal. Escalate to Product.</div>
+        </div>
+        <div style="background:rgba(79,142,255,0.05);border-left:2px solid var(--accent2);padding:0.75rem;border-radius:0 4px 4px 0">
+          <div style="font-size:0.75rem;font-weight:600;color:var(--accent2);margin-bottom:3px">✓ CSAT target achieved</div>
+          <div style="font-size:0.72rem;color:var(--muted);line-height:1.5">84% CSAT exceeds Q3 target of 80%. Mid-Market segment highest performer at 89%.</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- FOOTER -->
+<div class="dash-footer">
+  <span>CX ANALYTICS DASHBOARD · SIMULATED DATA FOR PORTFOLIO</span>
+  <span>Built by Omaima Maarouf · Power BI | SQL | Python</span>
+</div>
+
+<script>
+const chartDefaults = {
+  color: '#5a6480',
+  borderColor: '#252b3d',
+  font: { family: "'JetBrains Mono', monospace", size: 10 }
+};
+Chart.defaults.color = chartDefaults.color;
+Chart.defaults.borderColor = chartDefaults.borderColor;
+Chart.defaults.font = chartDefaults.font;
+
+const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+// NPS TREND
+const npsTrendCtx = document.getElementById('npsTrend').getContext('2d');
+new Chart(npsTrendCtx, {
+  type: 'line',
+  data: {
+    labels: months,
+    datasets: [
+      {
+        label: 'NPS Score',
+        data: [38,41,45,44,50,53,55,54,58,60,61,62],
+        borderColor: '#00e5a0',
+        backgroundColor: 'rgba(0,229,160,0.06)',
+        borderWidth: 2,
+        fill: true,
+        tension: 0.4,
+        pointRadius: 3,
+        pointBackgroundColor: '#00e5a0'
+      },
+      {
+        label: 'Promoters %',
+        data: [45,47,50,49,54,56,58,57,60,61,61,62],
+        borderColor: '#4f8eff',
+        backgroundColor: 'transparent',
+        borderWidth: 1.5,
+        borderDash: [4,4],
+        tension: 0.4,
+        pointRadius: 0
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: true,
+    plugins: { legend: { display: true, position: 'top', labels: { boxWidth: 10, padding: 16, font: { size: 10 } } }, tooltip: { mode: 'index', intersect: false } },
+    scales: {
+      x: { grid: { color: 'rgba(37,43,61,0.5)' }, ticks: { font: { size: 9 } } },
+      y: { grid: { color: 'rgba(37,43,61,0.5)' }, min: 30, max: 80, ticks: { font: { size: 9 } } }
+    }
+  }
+});
+
+// CSAT DONUT
+const csatCtx = document.getElementById('csatDonut').getContext('2d');
+new Chart(csatCtx, {
+  type: 'doughnut',
+  data: {
+    labels: ['Very Satisfied','Satisfied','Neutral','Unsatisfied','Very Unsatisfied'],
+    datasets: [{
+      data: [48, 36, 10, 4, 2],
+      backgroundColor: ['#00e5a0','#4f8eff','#ffd166','#ff9a4f','#ff6b6b'],
+      borderColor: '#13161e',
+      borderWidth: 2,
+      hoverOffset: 6
+    }]
+  },
+  options: {
+    responsive: false,
+    cutout: '68%',
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw}%` } }
+    }
+  }
+});
+
+// TICKET BAR
+const ticketCtx = document.getElementById('ticketBar').getContext('2d');
+new Chart(ticketCtx, {
+  type: 'bar',
+  data: {
+    labels: ['Onboarding','Billing','Technical','Feature Req','Account'],
+    datasets: [
+      {
+        label: 'Volume',
+        data: [142, 118, 95, 73, 52],
+        backgroundColor: 'rgba(79,142,255,0.3)',
+        borderColor: '#4f8eff',
+        borderWidth: 1,
+        yAxisID: 'y'
+      },
+      {
+        label: 'Avg Res. (h)',
+        data: [3.2, 6.1, 7.8, 2.4, 4.1],
+        backgroundColor: 'rgba(255,209,102,0.15)',
+        borderColor: '#ffd166',
+        borderWidth: 1,
+        type: 'line',
+        tension: 0.4,
+        pointRadius: 3,
+        pointBackgroundColor: '#ffd166',
+        yAxisID: 'y2'
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: true,
+    plugins: { legend: { display: true, position: 'top', labels: { boxWidth: 10, padding: 12, font: { size: 9 } } } },
+    scales: {
+      x: { grid: { color: 'rgba(37,43,61,0.5)' }, ticks: { font: { size: 9 } } },
+      y: { grid: { color: 'rgba(37,43,61,0.5)' }, position: 'left', ticks: { font: { size: 9 } } },
+      y2: { position: 'right', grid: { display: false }, ticks: { font: { size: 9 }, callback: v => v + 'h' } }
+    }
+  }
+});
+
+// CX EVOLUTION
+const cxCtx = document.getElementById('cxEvolution').getContext('2d');
+new Chart(cxCtx, {
+  type: 'line',
+  data: {
+    labels: months,
+    datasets: [
+      {
+        label: 'NPS (normalized)',
+        data: [38,41,45,44,50,53,55,54,58,60,61,62],
+        borderColor: '#00e5a0',
+        backgroundColor: 'transparent',
+        borderWidth: 2,
+        tension: 0.4,
+        pointRadius: 2,
+        pointBackgroundColor: '#00e5a0'
+      },
+      {
+        label: 'CSAT %',
+        data: [72,74,76,75,78,80,81,80,82,83,84,84],
+        borderColor: '#4f8eff',
+        backgroundColor: 'transparent',
+        borderWidth: 2,
+        tension: 0.4,
+        pointRadius: 2,
+        pointBackgroundColor: '#4f8eff'
+      },
+      {
+        label: 'Churn Rate %',
+        data: [5.8,5.5,5.1,5.3,4.8,4.5,4.2,4.4,3.9,3.6,3.3,3.2],
+        borderColor: '#ff6b6b',
+        backgroundColor: 'transparent',
+        borderWidth: 2,
+        tension: 0.4,
+        pointRadius: 2,
+        pointBackgroundColor: '#ff6b6b',
+        borderDash: [4,4]
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: true,
+    plugins: {
+      legend: { display: true, position: 'top', labels: { boxWidth: 10, padding: 14, font: { size: 9 } } },
+      tooltip: { mode: 'index', intersect: false }
+    },
+    scales: {
+      x: { grid: { color: 'rgba(37,43,61,0.5)' }, ticks: { font: { size: 9 } } },
+      y: { grid: { color: 'rgba(37,43,61,0.5)' }, ticks: { font: { size: 9 } } }
+    }
+  }
+});
+
+// PERIOD SWITCHER
+const periodData = {
+  Q1: { nps: 44, csat: 76, churn: 5.1, res: 6.2, npsChange: '+3 vs Q4', csatChange: '+2%', churnChange: '-0.4%', resChange: '-0.3h', npsDir: 'up', csatDir: 'up', churnDir: 'up', resDir: 'up' },
+  Q2: { nps: 53, csat: 80, churn: 4.2, res: 5.4, npsChange: '+9 vs Q1', csatChange: '+4%', churnChange: '-0.9%', resChange: '-0.8h', npsDir: 'up', csatDir: 'up', churnDir: 'up', resDir: 'up' },
+  Q3: { nps: 62, csat: 84, churn: 3.2, res: 4.8, npsChange: '+8 vs Q2', csatChange: '+5%', churnChange: '-1.1%', resChange: '-0.6h', npsDir: 'up', csatDir: 'up', churnDir: 'up', resDir: 'neutral' },
+  Q4: { nps: 65, csat: 86, churn: 2.9, res: 4.5, npsChange: '+3 vs Q3', csatChange: '+2%', churnChange: '-0.3%', resChange: '-0.3h', npsDir: 'up', csatDir: 'up', churnDir: 'up', resDir: 'up' }
+};
+
+function setPeriod(p) {
+  document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  const d = periodData[p];
+  document.getElementById('kpi-nps').innerHTML = `${d.nps}<span>/100</span>`;
+  document.getElementById('kpi-csat').innerHTML = `${d.csat}<span>%</span>`;
+  document.getElementById('kpi-churn').innerHTML = `${d.churn}<span>%</span>`;
+  document.getElementById('kpi-res').innerHTML = `${d.res}<span>h</span>`;
+  document.getElementById('kpi-nps-change').textContent = `▲ ${d.npsChange}`;
+  document.getElementById('kpi-csat-change').textContent = `▲ ${d.csatChange} vs last quarter`;
+  document.getElementById('kpi-churn-change').textContent = `▼ ${d.churnChange} vs last quarter`;
+  document.getElementById('kpi-res-change').textContent = `▼ ${d.resChange} vs last quarter`;
+  document.getElementById('gauge-val').textContent = d.nps;
+  document.getElementById('nps-fill').style.width = d.nps + '%';
+}
+
+function setSegment(btn, seg) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+</script>
+</body>
+</html>
